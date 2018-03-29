@@ -4,7 +4,6 @@
 
 Programmes informatiques rédigés par Laurence Liang, Collège Jean-de-Brébeuf.
 
-Données fournies par Sebastien Tremblay, PhD de l'Université de McGill
 
 
 
