@@ -186,180 +186,180 @@ class BrainAlgorithm:
     def update_epoch():
         self.epoch += 1
 
-        class VotingBrainAlgorithm(BrainAlgorithm):
+class VotingBrainAlgorithm(BrainAlgorithm):
+"""Child class of BrainAlgorithm that performs voting"""
+    def __init__(self, X, y_tar, epoch, session=0):
+        """Data"""
+        self.X = X
+        self.y_tar = y_tar
+        self.features_accuracy = []   # accuracy per feature
+        self.features_index = []   # features with good accuracy
+        self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y_tar, test_size=.2, random_state=42)
+        self.counter=0
+        self.debug = []
+        self.epoch = epoch
+        self.accuracy_list = []
+        self.session = session
+        self.neuron_list = [136, 167, 140, 160, 147, 174, 150, 168, 168]
+        self.neuron_num = self.neuron_list[self.session]
 
-            def __init__(self, X, y_tar, epoch, session=0):
-                """Data"""
-                self.X = X
-                self.y_tar = y_tar
-                self.features_accuracy = []   # accuracy per feature
-                self.features_index = []   # features with good accuracy
-                self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(X, y_tar, test_size=.2, random_state=42)
-                self.counter=0
-                self.debug = []
-                self.epoch = epoch
-                self.accuracy_list = []
-                self.session = session
-                self.neuron_list = [136, 167, 140, 160, 147, 174, 150, 168, 168]
-                self.neuron_num = self.neuron_list[self.session]
+    def compute_per_gaussian(self, max_iter=100):
+        """Compute SVM per feature"""
+        # per feature
+        for feature_index in range(int(len(X[0])/45)):
+            X_train_mod = []
+            # define training dataset
+            for example in range(len(self.X_train)):   # for each example (469)
+                X_train_mod.append([self.X_train[example][self.epoch*self.neuron_num + self.counter]])
 
-            def compute_per_gaussian(self, max_iter=100):
-                """Compute SVM per feature"""
-                # per feature
-                for feature_index in range(int(len(X[0])/45)):
-                    X_train_mod = []
-                    # define training dataset
-                    for example in range(len(self.X_train)):   # for each example (469)
-                        X_train_mod.append([self.X_train[example][self.epoch*self.neuron_num + self.counter]])
+            X_test_mod = []
+            # define testing dataset
+            for example in range(len(self.X_test)):   # for each example (469)
+                X_test_mod.append([self.X_test[example][self.epoch*self.neuron_num + self.counter]])
 
-                    X_test_mod = []
-                    # define testing dataset
-                    for example in range(len(self.X_test)):   # for each example (469)
-                        X_test_mod.append([self.X_test[example][self.epoch*self.neuron_num + self.counter]])
+            gamma = 1e-2
+            c = 10
+            kernel = 'linear'
 
-                    gamma = 1e-2
-                    c = 10
-                    kernel = 'linear'
+            clf = GPC(max_iter_predict=max_iter)  # GPC model
+            clf.fit(X_train_mod, self.y_train) # compute with only one feature
+            score = clf.score(X_test_mod, self.y_test)
 
-                    clf = GPC(max_iter_predict=max_iter)  # GPC model
-                    clf.fit(X_train_mod, self.y_train) # compute with only one feature
-                    score = clf.score(X_test_mod, self.y_test)
+            self.features_accuracy.append(score)
 
-                    self.features_accuracy.append(score)
+            self.counter += 1
 
-                    self.counter += 1
+    def compute_reduced_knn(self, n_neigh=3):
+        """Compute with KNN"""
+        X_train_mod = []
+        # define training dataset
+        for example in range(len(self.X_train)):   # for each example (469)
+            temp = []
+            for index in self.features_index:
+                temp.append(self.X_train[example][self.epoch*self.neuron_num + index])
+            X_train_mod.append(temp)
 
-            def compute_reduced_knn(self, n_neigh=3):
-                """Compute with KNN"""
-                X_train_mod = []
-                # define training dataset
-                for example in range(len(self.X_train)):   # for each example (469)
-                    temp = []
-                    for index in self.features_index:
-                        temp.append(self.X_train[example][self.epoch*self.neuron_num + index])
-                    X_train_mod.append(temp)
+        self.debug = X_train_mod
 
-                self.debug = X_train_mod
+        X_test_mod = []
+        # define testing dataset
+        for example in range(len(self.X_test)):   # for each example (469)
+            temp = []
+            for index in self.features_index:
+                temp.append(self.X_test[example][self.epoch*self.neuron_num + index])
+            X_test_mod.append(temp)
 
-                X_test_mod = []
-                # define testing dataset
-                for example in range(len(self.X_test)):   # for each example (469)
-                    temp = []
-                    for index in self.features_index:
-                        temp.append(self.X_test[example][self.epoch*self.neuron_num + index])
-                    X_test_mod.append(temp)
+        gamma = 1e-1
+        c = 10
+        kernel = 'poly'
+        # c, gamma, kernel = self.parameter_search_svm(self.X_train, self.y_train)
 
-                gamma = 1e-1
-                c = 10
-                kernel = 'poly'
-                # c, gamma, kernel = self.parameter_search_svm(self.X_train, self.y_train)
+        neigh = KNeighborsClassifier(n_neighbors=n_neigh)  # SVC model
 
-                neigh = KNeighborsClassifier(n_neighbors=n_neigh)  # SVC model
-
-                neigh.fit(X_train_mod, self.y_train) # compute with only one feature
-                score = neigh.score(X_test_mod, self.y_test)
-                return(score)
-
-
-            def voting_svm(self):
-                """Voting implementation of SVM for a unique epoch"""
-                per_neuron_prediction = []
-
-                """
-                STRUCTURE:
-                -> Key neurons
-                    -> Each epoch
-                        -> Number of tasks (~100)
-                            -> Results for each neuron
-                """
-
-                # Choosing features
-                # train data
-                print("test")
-                for neuron in self.features_index:    # for good neurons
-                    neuron_votes = []
-                    X_for_neuron = []
-                    for example in range(len(self.X_train)):     # for each of tasks
-                        X_for_neuron.append([self.X_train[example][self.epoch*self.neuron_num + neuron]])
-
-                    X_test = []
-                    for example in range(len(self.X_test)):     # for each of tasks
-                        X_test.append([self.X_test[example][self.epoch*self.neuron_num + neuron]])
-
-                    clf = GPC()
-                    # prediction on individual neuron
-                    clf.fit(X_for_neuron, self.y_train)
-                    # add predictions to data for each sample
-                    pred = clf.predict(X_test)
+        neigh.fit(X_train_mod, self.y_train) # compute with only one feature
+        score = neigh.score(X_test_mod, self.y_test)
+        return(score)
 
 
-                    neuron_votes.append(pred)
-                    per_neuron_prediction.append(neuron_votes)
+    def voting_svm(self):
+        """Voting implementation of SVM for a unique epoch"""
+        per_neuron_prediction = []
+
+        """
+        STRUCTURE:
+        -> Key neurons
+            -> Each epoch
+                -> Number of tasks (~100)
+                    -> Results for each neuron
+        """
+
+        # Choosing features
+        # train data
+        print("test")
+        for neuron in self.features_index:    # for good neurons
+            neuron_votes = []
+            X_for_neuron = []
+            for example in range(len(self.X_train)):     # for each of tasks
+                X_for_neuron.append([self.X_train[example][self.epoch*self.neuron_num + neuron]])
+
+            X_test = []
+            for example in range(len(self.X_test)):     # for each of tasks
+                X_test.append([self.X_test[example][self.epoch*self.neuron_num + neuron]])
+
+            clf = GPC()
+            # prediction on individual neuron
+            clf.fit(X_for_neuron, self.y_train)
+            # add predictions to data for each sample
+            pred = clf.predict(X_test)
 
 
-                # test data
-                accuracy = 0
-                print(per_neuron_prediction[0])
-                print(len(self.X_test))
-
-                features_num = len(self.features_index)
-
-                # check if voting legnth is even
-                """
-                if len(per_neuron_prediction)%2==0:
-                    del per_neuron_prediction[-1]
-                    features_num =- 1
-                """
-
-                print(per_neuron_prediction)
-
-                # for each testing task per session per epoch
-                for test_task in range(len(self.X_test)):
-                    # count the most number of votes as predicted by SVC
-                    # classifier per individual neuron
-                    temp_task = []
-                    for neuron in range(features_num):
-                        temp_task.append(per_neuron_prediction[neuron][0][test_task])
-                    vote_result = mode(temp_task)
-                    if vote_result == self.y_test[test_task]:
-                        accuracy += 1
-                    print("ACCURACY {}".format(accuracy/(test_task+1)))
-
-                accuracy = accuracy/len(self.X_test)
-
-                return accuracy
-
-                # return accuracy
+            neuron_votes.append(pred)
+            per_neuron_prediction.append(neuron_votes)
 
 
-            def compute_reduced_svm(self):
-                """SVM on select number of features"""
+        # test data
+        accuracy = 0
+        print(per_neuron_prediction[0])
+        print(len(self.X_test))
 
-                X_train_mod = []
-                # define training dataset
-                for example in range(len(self.X_train)):   # for each example (469)
-                    temp = []
-                    for index in self.features_index:
-                        temp.append(self.X_train[example][self.epoch*self.neuron_num + index])
-                    X_train_mod.append(temp)
+        features_num = len(self.features_index)
 
-                self.debug = X_train_mod
+        # check if voting legnth is even
+        """
+        if len(per_neuron_prediction)%2==0:
+            del per_neuron_prediction[-1]
+            features_num =- 1
+        """
 
-                X_test_mod = []
-                # define testing dataset
-                for example in range(len(self.X_test)):   # for each example (469)
-                    temp = []
-                    for index in self.features_index:
-                        temp.append(self.X_test[example][self.epoch*self.neuron_num + index])
-                    X_test_mod.append(temp)
+        print(per_neuron_prediction)
 
-                gamma = 1e-1
-                c = 10
-                kernel = 'poly'
-                # c, gamma, kernel = self.parameter_search_svm(self.X_train, self.y_train)
+        # for each testing task per session per epoch
+        for test_task in range(len(self.X_test)):
+            # count the most number of votes as predicted by SVC
+            # classifier per individual neuron
+            temp_task = []
+            for neuron in range(features_num):
+                temp_task.append(per_neuron_prediction[neuron][0][test_task])
+            vote_result = mode(temp_task)
+            if vote_result == self.y_test[test_task]:
+                accuracy += 1
+            print("ACCURACY {}".format(accuracy/(test_task+1)))
 
-                clf = SVC(kernel=kernel, C=c, gamma=gamma)  # SVC model
+        accuracy = accuracy/len(self.X_test)
 
-                clf.fit(X_train_mod, self.y_train) # compute with only one feature
-                score = clf.score(X_test_mod, self.y_test)
-                return(score)
+        return accuracy
+
+        # return accuracy
+
+
+    def compute_reduced_svm(self):
+        """SVM on select number of features"""
+
+        X_train_mod = []
+        # define training dataset
+        for example in range(len(self.X_train)):   # for each example (469)
+            temp = []
+            for index in self.features_index:
+                temp.append(self.X_train[example][self.epoch*self.neuron_num + index])
+            X_train_mod.append(temp)
+
+        self.debug = X_train_mod
+
+        X_test_mod = []
+        # define testing dataset
+        for example in range(len(self.X_test)):   # for each example (469)
+            temp = []
+            for index in self.features_index:
+                temp.append(self.X_test[example][self.epoch*self.neuron_num + index])
+            X_test_mod.append(temp)
+
+        gamma = 1e-1
+        c = 10
+        kernel = 'poly'
+        # c, gamma, kernel = self.parameter_search_svm(self.X_train, self.y_train)
+
+        clf = SVC(kernel=kernel, C=c, gamma=gamma)  # SVC model
+
+        clf.fit(X_train_mod, self.y_train) # compute with only one feature
+        score = clf.score(X_test_mod, self.y_test)
+        return(score)
