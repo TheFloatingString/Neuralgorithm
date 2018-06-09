@@ -1,6 +1,6 @@
-# Neuro_Decoding
+# Neuralgorithm
 
-## Projet d'Expo-Sciences Hydro-Québec 2018
+## Projet d'Expo-Sciences Pan Canadienne 2018
 
 Programmes informatiques rédigés par Laurence Liang, Collège Jean-de-Brébeuf.
 
